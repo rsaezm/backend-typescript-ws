@@ -112,4 +112,4 @@ const wss = new WebSocket.Server({ server: httpServer })
 	wss.on('close', websocketService.OnClose)
 }
 
-const server = httpServer.listen(+process.env.BACKEND_API_PORT)
+const server = httpServer.listen(+process.env.BACKEND_API_PORT || 6300)

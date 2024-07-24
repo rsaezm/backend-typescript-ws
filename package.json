@@ -2,9 +2,9 @@
 	"name": "backend",
 	"version": "0.0.1",
 	"scripts": {
-		"start": "npx tsc -w",
 		"dev": "npx nodemon",
-		"build": "tsc"
+		"start:prod": "node dist/index.js",
+		"build": "npm install --production=false && tsc && npm prune --production"
 	},
 	"author": "",
 	"license": "ISC",
