@@ -8,7 +8,9 @@ import { container, Lifecycle } from 'tsyringe'
 import WebSocket from 'ws'
 import { ApiRoutes } from './api'
 import { AutenticacionRoutes } from './api/autenticacion.routes'
-import { WebsocketService } from './core'
+import { NotFoundException, WebsocketService } from './core'
+import { UsuarioRoutes } from './api/usuario.routes'
+import { ErrorMiddleware } from './core/middlewares'
 
 {	//	Database
 	mongoose.connection.on('error', error => {
@@ -28,10 +30,15 @@ const app: Application = express()
 {
 	app.use(express.json({ limit: '100mb' }))
 	app.use(express.urlencoded({ extended: true, limit: '100mb' }))
+
 	container.register('ApiRoutes', { useClass: ApiRoutes }, { lifecycle: Lifecycle.Singleton })
 	container.register('AutenticacionRoutes', { useClass: AutenticacionRoutes }, { lifecycle: Lifecycle.Singleton })
+	container.register('UsuarioRoutes', { useClass: UsuarioRoutes }, { lifecycle: Lifecycle.Singleton })
+
 	const apiRoutes = container.resolve(ApiRoutes)
 	app.use('/api', apiRoutes.routes)
+	app.all('/*', (req: express.Request, res: express.Response, next: express.NextFunction) => next(new NotFoundException('No se ha encontrado el recurso solicitado')))
+	app.use(ErrorMiddleware)
 }
 
 const httpServer: Server = http.createServer(app)

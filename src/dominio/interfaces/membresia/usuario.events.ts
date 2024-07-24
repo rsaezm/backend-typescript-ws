@@ -1,5 +1,5 @@
 export enum UsuarioEvents {
-	Create = "UsuarioOnCreate",
-	Update = "UsuarioOnUpdate",
-	Delete = "UsuarioOnDelete",
+	Crear = "UsuarioOnCrear",
+	Actualizar = "UsuarioOnActualizar",
+	Eliminar = "UsuarioOnEliminar",
 }

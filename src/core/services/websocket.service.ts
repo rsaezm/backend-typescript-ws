@@ -1,7 +1,10 @@
 import { IncomingMessage } from 'http'
-import { singleton } from 'tsyringe'
+import { inject, singleton } from 'tsyringe'
 import { WebSocket } from 'ws'
-import { IUsuario } from '../../../repository'
+import { IUsuario, UsuarioRepository } from '../../repository'
+import { CryptService } from './crypt.service'
+import { privateDecrypt } from 'crypto'
+import { AutenticacionService, UsuarioService } from '../../dominio'
 
 interface Dictionary<T> {
 	[Key: string]: T
@@ -11,6 +14,10 @@ interface Dictionary<T> {
 export class WebsocketService {
 	private static sockets: Dictionary<WebSocket> = {};
 
+	constructor(
+		@inject('CryptService') private cryptService: CryptService,
+	) { }
+
 	public OnListening = () => {
 		// console.log('WebsocketService.OnListening')
 	}
@@ -19,21 +26,21 @@ export class WebsocketService {
 		// console.log('WebsocketService.OnHeaders')//, { headers, request }
 	}
 
-	public OnConnection = (websocket: WebSocket, request: IncomingMessage) => {
+	public OnConnection = async (websocket: WebSocket, request: IncomingMessage) => {
 		if (!request.headers.authorization) {
 			websocket.close(3000, 'Endpoint must be authorized to perform application-based request')
 			return
 		}
 
-		if (!['Usuario1', 'Usuario2', 'Usuario3'].includes(request.headers.authorization)) {
+		const payload: { payload: string } = await this.cryptService.DecodeToken<{ payload: string }>(request.headers.authorization)
+
+		if (!(await UsuarioRepository.findById(payload.payload))) {
 			websocket.close(3003, 'Endpoint is authorized but has no permissions to perform application-based request')
 			return
 		}
 
 		// console.log('WebsocketService.OnConnection')//, { websocket, request }
-		WebsocketService.sockets[request.headers.authorization]
-			? WebsocketService.sockets[request.headers.authorization] = websocket
-			: WebsocketService.sockets[request.headers.authorization] = websocket
+		WebsocketService.sockets[payload.payload] = websocket
 
 		websocket.on('open', (args: any[]) => {
 			// console.log('WebsocketService.OnConnection.open')//, args
@@ -54,12 +61,13 @@ export class WebsocketService {
 			// console.log('WebsocketService.OnConnection.unexpected-response')//, args
 		})
 		websocket.on('error', (args: any[]) => {
-			// console.log('WebsocketService.OnConnection.error')//, args
+			console.log('WebsocketService.OnConnection.error')//, args
 		})
-		websocket.on('close', (closeCode: number, closeMessage: IncomingMessage) => {
+		websocket.on('close', async (closeCode: number, closeMessage: IncomingMessage) => {
 			switch (closeCode) {
 				case 1000: {
-					delete WebsocketService.sockets[request.headers.authorization]
+					const payload: { payload: string } = await this.cryptService.DecodeToken<{ payload: string }>(request.headers.authorization)
+					delete WebsocketService.sockets[payload.payload]
 					break
 				}
 				default: {
