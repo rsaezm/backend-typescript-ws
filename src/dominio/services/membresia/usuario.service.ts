@@ -1,15 +1,14 @@
 import bcrypt from 'bcryptjs'
 import EventEmitter from "events"
 import { DateTime } from 'luxon'
-import { injectable } from 'tsyringe'
+import { inject, injectable } from 'tsyringe'
 import { WebsocketService } from '../../../core'
 import { type IUsuario, UsuarioRepository } from '../../../repository'
 import { type IUsuarioEntity, UsuarioEvents } from '../../interfaces'
 import { UsuarioMapping } from '../../mapping'
 
-@injectable<UsuarioService>()
-export class UsuarioService extends EventEmitter {
-	constructor(private websocketService: WebsocketService) { super() }
+@injectable<UsuarioService>() export class UsuarioService extends EventEmitter {
+	constructor(@inject(WebsocketService) private websocketService: WebsocketService) { super() }
 
 	public async GetAll(): Promise<IUsuario[]> {
 		return await UsuarioRepository.find()

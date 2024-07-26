@@ -5,15 +5,13 @@ import { ValidateClass } from '../core/middlewares'
 import { LoginEntity } from '../dominio/classes/membresia/autenticacion.entity'
 import { AutenticacionMapping } from '../dominio/mapping'
 
-@injectable<AutenticacionRoutes>()
-export class AutenticacionRoutes {
+@injectable<AutenticacionRoutes>() export class AutenticacionRoutes {
 	public routes = Router()
 
-	constructor(
-		@inject('AutenticacionService') private autenticacionService: AutenticacionService
-	) {
+	constructor(@inject(AutenticacionService) private autenticacionService: AutenticacionService) {
 		this.routes.post('/login', ValidateClass(LoginEntity), async (req: Request, res: Response, next: NextFunction) => {
-			res.status(200).json(await AutenticacionMapping.RepositoryToType(await this.autenticacionService.Login(req.body as ILoginEntity)))
+			try { res.status(200).json(await AutenticacionMapping.RepositoryToType(await this.autenticacionService.Login(req.body as ILoginEntity))) }
+			catch (error) { next(error) }
 		})
 	}
 }

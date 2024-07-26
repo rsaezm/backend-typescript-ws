@@ -1,16 +1,22 @@
-import express, { Application } from 'express'
-import http, { IncomingMessage, RequestListener, Server } from "http"
+import cors, { CorsOptions } from 'cors'
+import express, { Application, NextFunction, Request } from 'express'
+import http, { Server as HttpServer } from 'http'
+import { Settings } from 'luxon'
 import mongoose from 'mongoose'
-import { Socket } from 'net'
-import "reflect-metadata"
-import { Duplex } from 'stream'
+import morgan from 'morgan'
+import 'reflect-metadata'
+import { Server as ServerIo, Socket } from 'socket.io'
 import { container, Lifecycle } from 'tsyringe'
-import WebSocket from 'ws'
 import { ApiRoutes } from './api'
 import { AutenticacionRoutes } from './api/autenticacion.routes'
-import { NotFoundException, WebsocketService } from './core'
 import { UsuarioRoutes } from './api/usuario.routes'
+import { NotFoundException, WebsocketService } from './core'
 import { ErrorMiddleware } from './core/middlewares'
+
+//	Initialize Parameters
+Settings.defaultZone = "America/Santiago"
+Settings.defaultLocale = "es-CL"
+const corsOptions: CorsOptions = { origin: process.env.FRONTEND_URL }
 
 {	//	Database
 	mongoose.connection.on('error', error => {
@@ -25,11 +31,13 @@ import { ErrorMiddleware } from './core/middlewares'
 	mongoose.connect(process.env.MONGODB_URL ?? '')
 }
 
-
 const app: Application = express()
+const httpServer: HttpServer = http.createServer(app)
 {
+	app.use(cors(corsOptions))
 	app.use(express.json({ limit: '100mb' }))
 	app.use(express.urlencoded({ extended: true, limit: '100mb' }))
+	app.use(morgan('tiny'))
 
 	container.register('ApiRoutes', { useClass: ApiRoutes }, { lifecycle: Lifecycle.Singleton })
 	container.register('AutenticacionRoutes', { useClass: AutenticacionRoutes }, { lifecycle: Lifecycle.Singleton })
@@ -39,84 +47,17 @@ const app: Application = express()
 	app.use('/api', apiRoutes.routes)
 	app.all('/*', (req: express.Request, res: express.Response, next: express.NextFunction) => next(new NotFoundException('No se ha encontrado el recurso solicitado')))
 	app.use(ErrorMiddleware)
+
+	httpServer.on('listening', () => console.log('httpServer.OnListening'))
+	httpServer.on('connection', (socket: any) => console.log('httpServer.OnConnection'))
+	httpServer.on('request', (req: Request, res: Response) => console.log('httpServer.OnRequest'))
 }
 
-const httpServer: Server = http.createServer(app)
-{
-	// on(event: "close", listener: () => void): this;
-	httpServer.on('close', () => {
-		// console.log('close')
-	})
-
-	// on(event: "connection", listener: (socket: Socket) => void): this;
-	httpServer.on('connection', (socket: Socket) => {
-		// console.log('connection')//, socket
-	})
-
-	// on(event: "error", listener: (err: Error) => void): this;
-	httpServer.on('error', (err: Error) => {
-		// console.log(err)
-		// if (err.code === 'EADDRINUSE')
-		// 	console.error('Error: address already in use')
-		// else
-		// console.error('server error: ', err)
-	})
-
-	// on(event: "checkContinue", listener: RequestListener<Request, Response>): this;
-	httpServer.on('checkContinue', (listener: RequestListener) => {
-		// console.log('checkContinue')//, listener
-	})
-
-	// on(event: "checkExpectation", listener: RequestListener<Request, Response>): this;
-	httpServer.on('checkExpectation', (listener: RequestListener) => {
-		// console.log('checkExpectation')//, listener
-	})
-
-	// on(event: "clientError", listener: (err: Error, socket: stream.Duplex) => void): this;
-	httpServer.on('clientError', (err: Error, socket: Duplex) => {
-		// console.log('clientError')//, err socket)
-	})
-
-	// on(event: "connect", listener: (req: InstanceType<Request>, socket: stream.Duplex, head: Buffer) => void): this;
-	httpServer.on('connect', (req: any, socket: Duplex, head: Buffer) => {
-		// console.log('connect')//, req socket, head
-	})
-
-	// on(event: "dropRequest", listener: (req: InstanceType<Request>, socket: stream.Duplex) => void): this;
-	httpServer.on('dropRequest', (args: any[]) => {
-		// console.log('dropRequest')//, args
-	})
-
-	// on(event: "listening", listener: () => void): this;
-	httpServer.on('listening', (args: any[]) => {
-		// console.log('listening')//, args
-	})
-
-	// on(event: "request", listener: RequestListener<Request, Response>): this;
-	httpServer.on('request', (args: any[]) => {
-		// console.log('request')//, args
-	})
-
-	// on(event: "upgrade", listener: (req: InstanceType<Request>, socket: stream.Duplex, head: Buffer) => void): this;
-	httpServer.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-		// if (!req.headers.authorization) {
-		// 	socket.end('HTTP/1.1 400 Bad Request')
-		// 	return
-		// }
-		// console.log('upgrade')//, socket, head
-	})
-
-}
-
-const wss = new WebSocket.Server({ server: httpServer })
 {	//	Websocket
-	const websocketService: WebsocketService = container.resolve(WebsocketService)
+	const io = new ServerIo(httpServer, { cors: corsOptions })
 
-	wss.on('listening', websocketService.OnListening)
-	wss.on('headers', websocketService.OnHeaders)
-	wss.on('connection', websocketService.OnConnection)
-	wss.on('error', websocketService.OnError)
-	wss.on('close', websocketService.OnClose)
+	const websocketService: WebsocketService = container.resolve(WebsocketService)
+	io.on('connect', websocketService.OnConnect)
 }
 
 const server = httpServer.listen(+process.env.BACKEND_API_PORT || 6300)

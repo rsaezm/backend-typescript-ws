@@ -1,14 +1,11 @@
 import EventEmitter from "events"
-import { injectable } from 'tsyringe'
+import { inject, injectable } from 'tsyringe'
 import { CryptService, NotAcceptableException } from '../../../core'
 import { IUsuario, UsuarioRepository } from '../../../repository'
 import { ILoginEntity } from '../../interfaces'
 
-@injectable<AutenticacionService>()
-export class AutenticacionService extends EventEmitter {
-	constructor(
-		private cryptService: CryptService
-	) { super() }
+@injectable<AutenticacionService>() export class AutenticacionService extends EventEmitter {
+	constructor() { super() }
 
 	public async Login(entity: ILoginEntity): Promise<string> {
 		const usuario: IUsuario = await UsuarioRepository.findOne({ CorreoElectronico: entity.CorreoElectronico })
@@ -16,13 +13,12 @@ export class AutenticacionService extends EventEmitter {
 		if (!usuario)
 			throw new NotAcceptableException('Nombre de usuario o contraseña incorrectos')
 
-		if (!(await this.cryptService.ComparePassword(entity.Password, usuario.Autenticacion.Password.Password)))
+		if (!(await CryptService.ComparePassword(entity.Password, usuario.Autenticacion.Password.Password)))
 			throw new NotAcceptableException('Nombre de usuario o contraseña incorrectos')
-
 
 		// TODO:	Generar sesión y persistirla en base de datos
 
-		const secretToken = await this.cryptService.GenerateAccessToken(usuario._id.valueOf(), true)
+		const secretToken: string = await CryptService.GenerateAccessToken<{ id: string }>({ id: usuario._id }, true)
 
 		return secretToken
 	}
